@@ -621,7 +621,9 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool get_block_hashing_blob(const block& b, blobdata& blob)
   {
-    blob = t_serializable_object_to_blob(static_cast<const block_header&>(b));
+    if (!t_serializable_object_to_blob(static_cast<const block_header&>(b), blob, true)) {
+      return false;
+    }
     crypto::hash tree_root_hash = get_tx_tree_hash(b);
     blob.append(reinterpret_cast<const char*>(&tree_root_hash), sizeof(tree_root_hash));
     blob.append(tools::get_varint_data(b.tx_hashes.size()+1));
@@ -644,13 +646,13 @@ namespace cryptonote
     return blob;
   }
   //---------------------------------------------------------------
-  bool get_block_hash(const block& b, crypto::hash& res)
+  bool get_block_hash(const block& b, crypto::hash& res, uint64_t mergedMiningBlockVersion)
   {
     blobdata blob;
     if (!get_block_hashing_blob(b, blob))
       return false;
 
-    if (BLOCK_MAJOR_VERSION_2 <= b.major_version)
+    if (mergedMiningBlockVersion <= b.major_version)
     {
       blobdata parent_blob;
       auto sbb = make_serializable_bytecoin_block(b, true, false);
@@ -776,12 +778,18 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b)
+  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b, bool mergedMining)
   {
     std::stringstream ss;
     ss << b_blob;
     binary_archive<false> ba(ss);
-    bool r = ::serialization::serialize(ba, b);
+    bool r = false;
+    if (mergedMining) {
+      r = ::serialization::serialize(ba, b);
+    } else {
+      auto ser = make_serializable_nomerge(b);
+      r = ::serialization::serialize(ba, ser);
+    }
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse block from blob");
     return true;
   }
@@ -798,6 +806,11 @@ namespace cryptonote
   blobdata block_to_blob(const block& b)
   {
     return t_serializable_object_to_blob(b);
+  }
+  //---------------------------------------------------------------
+  bool block_to_blob(const block& b, blobdata& b_blob, bool mergedMining)
+  {
+    return t_serializable_object_to_blob(b, b_blob, mergedMining);
   }
   //---------------------------------------------------------------
   bool block_to_blob(const block& b, blobdata& b_blob)

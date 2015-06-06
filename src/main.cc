@@ -84,6 +84,10 @@ Handle<Value> convert_blob(const Arguments& args) {
         return except("You must provide one argument.");
 
     Local<Object> target = args[0]->ToObject();
+    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_2;
+    if (args.Length() >= 2) {
+      mergedMiningBlockVersion = static_cast<uint64_t>(args[1]->ToNumber()->NumberValue());
+    }
 
     if (!Buffer::HasInstance(target))
         return except("Argument should be a buffer object.");
@@ -93,10 +97,10 @@ Handle<Value> convert_blob(const Arguments& args) {
 
     //convert
     block b = AUTO_VAL_INIT(b);
-    if (!parse_and_validate_block_from_blob(input, b))
+    if (!parse_and_validate_block_from_blob(input, b, b.major_version >= mergedMiningBlockVersion))
         return except("Failed to parse block");
 
-    if (b.major_version < BLOCK_MAJOR_VERSION_2) {
+    if (b.major_version < mergedMiningBlockVersion) {
         if (!get_block_hashing_blob(b, output))
             return except("Failed to create mining block");
     } else {
@@ -119,6 +123,10 @@ Handle<Value> get_block_id(const Arguments& args) {
         return except("You must provide one argument.");
 
     Local<Object> target = args[0]->ToObject();
+    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_2;
+    if (args.Length() >= 2) {
+      mergedMiningBlockVersion = static_cast<uint64_t>(args[1]->ToNumber()->NumberValue());
+    }
 
     if (!Buffer::HasInstance(target))
         return except("Argument should be a buffer object.");
@@ -127,11 +135,11 @@ Handle<Value> get_block_id(const Arguments& args) {
     blobdata output = "";
 
     block b = AUTO_VAL_INIT(b);
-    if (!parse_and_validate_block_from_blob(input, b))
+    if (!parse_and_validate_block_from_blob(input, b, b.major_version >= mergedMiningBlockVersion))
         return except("Failed to parse block");
 
     crypto::hash block_id;
-    if (!get_block_hash(b, block_id))
+    if (!get_block_hash(b, block_id, mergedMiningBlockVersion))
         return except("Failed to calculate hash for block");
 
     Buffer* buff = Buffer::New(reinterpret_cast<char*>(&block_id), sizeof(block_id));
@@ -147,6 +155,11 @@ Handle<Value> construct_block_blob(const Arguments& args) {
     Local<Object> block_template_buf = args[0]->ToObject();
     Local<Object> nonce_buf = args[1]->ToObject();
 
+    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_2;
+    if (args.Length() >= 3) {
+      mergedMiningBlockVersion = static_cast<uint64_t>(args[2]->ToNumber()->NumberValue());
+    }
+
     if (!Buffer::HasInstance(block_template_buf) || !Buffer::HasInstance(nonce_buf))
         return except("Both arguments should be buffer objects.");
 
@@ -159,11 +172,11 @@ Handle<Value> construct_block_blob(const Arguments& args) {
     blobdata output = "";
 
     block b = AUTO_VAL_INIT(b);
-    if (!parse_and_validate_block_from_blob(block_template_blob, b))
+    if (!parse_and_validate_block_from_blob(block_template_blob, b, b.major_version >= mergedMiningBlockVersion))
         return except("Failed to parse block");
 
     b.nonce = nonce;
-    if (b.major_version == BLOCK_MAJOR_VERSION_2) {
+    if (b.major_version == mergedMiningBlockVersion) {
         block parent_block;
         b.parent_block.nonce = nonce;
         if (!construct_parent_block(b, parent_block))
@@ -173,7 +186,7 @@ Handle<Value> construct_block_blob(const Arguments& args) {
             return except("Failed to postprocess mining block");
     }
 
-    if (!block_to_blob(b, output))
+    if (!block_to_blob(b, output, b.major_version >= mergedMiningBlockVersion))
         return except("Failed to convert block to blob");
 
     Buffer* buff = Buffer::New(output.data(), output.size());

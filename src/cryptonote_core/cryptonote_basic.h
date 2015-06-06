@@ -561,6 +561,59 @@ namespace cryptonote
   };
   //---------------------------------------------------------------
 
+  struct serializable_header_nomerge {
+    block_header& b;
+
+    serializable_header_nomerge(block_header& b_) :
+      b(b_) {
+    }
+
+    BEGIN_SERIALIZE()
+      //block header
+      VARINT_FIELD(b.major_version)
+      if(b.major_version > BLOCK_MAJOR_VERSION_2) return false;
+      VARINT_FIELD(b.minor_version)
+      VARINT_FIELD(b.timestamp)
+      FIELD(b.prev_id)
+      FIELD(b.nonce)
+    END_SERIALIZE()
+  };
+
+  struct serializable_nomerge : serializable_header_nomerge {
+    block& b;
+
+    serializable_nomerge(block& b_) : serializable_header_nomerge(b_), b(b_) {
+    }
+
+    BEGIN_SERIALIZE()
+      //block header
+      FIELDS(*static_cast<serializable_header_nomerge*>(this));
+      //block
+      FIELD(b.miner_tx);
+      FIELD(b.tx_hashes);
+    END_SERIALIZE()
+  };
+  
+  struct serializable_null {
+    template <class T>
+    serializable_null(T&&) {
+    }
+    BEGIN_SERIALIZE()
+      assert(false);
+      return false;
+    END_SERIALIZE()
+  };
+
+  inline serializable_header_nomerge make_serializable_nomerge(block_header& b) {
+    return serializable_header_nomerge(b);
+  }
+  inline serializable_nomerge make_serializable_nomerge(block& b) {
+    return serializable_nomerge(b);
+  }
+  template <class T>
+  inline serializable_null make_serializable_nomerge(T& b) {
+    return serializable_null(b);
+  }
 }
 
 BLOB_SERIALIZER(cryptonote::txout_to_key);
