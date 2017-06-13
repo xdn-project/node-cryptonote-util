@@ -619,6 +619,58 @@ namespace cryptonote
     return get_object_hash(t, res, blob_size);
   }
   //---------------------------------------------------------------
+  bool get_parent_block_transaction_hash(const parent_block_transaction& t, crypto::hash& res)
+  {
+	  // v1 transactions hash the entire blob
+	  if (t.version == 1) {
+		return get_object_hash(t, res);
+		}
+	  // v2 transactions hash different parts together, than hash the set of those hashes
+	  crypto::hash hashes[3];
+
+	  // prefix
+	  get_transaction_prefix_hash(t, hashes[0]);
+
+	  parent_block_transaction &tt = const_cast<parent_block_transaction&>(t);
+
+	  // base rct
+	  {
+		  std::stringstream ss;
+		  binary_archive<true> ba(ss);
+		  const size_t inputs = t.vin.size();
+		  const size_t outputs = t.vout.size();
+		  bool r = tt.rct_signatures.serialize_rctsig_base(ba, inputs, outputs);
+		  CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures base");
+		  cryptonote::get_blob_hash(ss.str(), hashes[1]);
+	  }
+
+	  // prunable rct
+	  if (t.rct_signatures.type == rct::RCTTypeNull)
+	  {
+		  hashes[2] = cryptonote::null_hash;
+	  }
+	  else
+	  {
+		  std::stringstream ss;
+		  binary_archive<true> ba(ss);
+		  const size_t inputs = t.vin.size();
+		  const size_t outputs = t.vout.size();
+		  const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
+		  bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
+		  CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
+		  cryptonote::get_blob_hash(ss.str(), hashes[2]);
+	  }
+
+	  // the tx hash is the hash of the 3 hashes
+	  res = cn_fast_hash(hashes, sizeof(hashes));
+
+	  // we still need the size
+	  //if (blob_size)
+		  //*blob_size = get_object_blobsize(t);
+
+	  return true;
+  }
+  //---------------------------------------------------------------
   bool get_block_hashing_blob(const block& b, blobdata& blob)
   {
     if (!t_serializable_object_to_blob(static_cast<const block_header&>(b), blob, true)) {
@@ -864,7 +916,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool check_proof_of_work_v1(const block& bl, difficulty_type current_diffic, crypto::hash& proof_of_work)
   {
-    if (BLOCK_MAJOR_VERSION_1 != bl.major_version)
+    if (BLOCK_MAJOR_VERSION_2 < bl.major_version)
       return false;
 
     proof_of_work = get_block_longhash(bl, 0);
@@ -873,8 +925,8 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool check_proof_of_work_v2(const block& bl, difficulty_type current_diffic, crypto::hash& proof_of_work)
   {
-    if (BLOCK_MAJOR_VERSION_2 != bl.major_version)
-      return false;
+	if (BLOCK_MAJOR_VERSION_3 > bl.major_version)
+	  return false;
 
     if (!get_bytecoin_block_longhash(bl, proof_of_work))
       return false;
@@ -911,8 +963,12 @@ namespace cryptonote
   {
     switch (bl.major_version)
     {
-    case BLOCK_MAJOR_VERSION_1: return check_proof_of_work_v1(bl, current_diffic, proof_of_work);
-    case BLOCK_MAJOR_VERSION_2: return check_proof_of_work_v2(bl, current_diffic, proof_of_work);
+    case BLOCK_MAJOR_VERSION_1:
+    case BLOCK_MAJOR_VERSION_2:
+		return check_proof_of_work_v1(bl, current_diffic, proof_of_work);
+	case BLOCK_MAJOR_VERSION_3:
+	case BLOCK_MAJOR_VERSION_4:
+		return check_proof_of_work_v2(bl, current_diffic, proof_of_work);
     }
 
     CHECK_AND_ASSERT_MES(false, false, "unknown block major version: " << bl.major_version << "." << bl.minor_version);

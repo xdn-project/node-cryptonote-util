@@ -24,16 +24,19 @@
 #include "crypto/hash.h"
 #include "misc_language.h"
 #include "tx_extra.h"
+#include "ringct/rctTypes.h"
 
 
 namespace cryptonote
 {
   struct block;
   class transaction;
+  class parent_block_transaction;
   struct tx_extra_merge_mining_tag;
 
   // Implemented in cryptonote_format_utils.cpp
   bool get_transaction_hash(const transaction& t, crypto::hash& res);
+  bool get_parent_block_transaction_hash(const parent_block_transaction& t, crypto::hash& res);
   bool get_mm_tag_from_extra(const std::vector<uint8_t>& tx, tx_extra_merge_mining_tag& mm_tag);
 
   const static crypto::hash null_hash = AUTO_VAL_INIT(null_hash);
@@ -183,6 +186,76 @@ namespace cryptonote
 
   protected:
     transaction_prefix(){}
+  };
+
+  class parent_block_transaction : public transaction_prefix
+  {
+  public:
+	  std::vector<std::vector<crypto::signature> > signatures; //count signatures  always the same as inputs count
+	  rct::rctSig rct_signatures;
+
+	  parent_block_transaction();
+	  virtual ~parent_block_transaction();
+	  void set_null();
+
+	  BEGIN_SERIALIZE_OBJECT()
+		  FIELDS(*static_cast<transaction_prefix *>(this))
+
+		  if (version < 2)
+		  {
+			  ar.tag("signatures");
+			  ar.begin_array();
+			  PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
+			  bool signatures_not_expected = signatures.empty();
+			  if (!signatures_not_expected && vin.size() != signatures.size())
+				  return false;
+
+			  for (size_t i = 0; i < vin.size(); ++i)
+			  {
+				  size_t signature_size = get_signature_size(vin[i]);
+				  if (signatures_not_expected)
+				  {
+					  if (0 == signature_size)
+						  continue;
+					  else
+						  return false;
+				  }
+
+				  PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
+				  if (signature_size != signatures[i].size())
+					  return false;
+
+				  FIELDS(signatures[i]);
+
+				  if (vin.size() - i > 1)
+					  ar.delimit_array();
+			  }
+			  ar.end_array();
+		  }
+		  else
+		  {
+			  ar.tag("rct_signatures");
+			  if (!vin.empty())
+			  {
+				  ar.begin_object();
+				  bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
+				  if (!r || !ar.stream().good()) return false;
+				  ar.end_object();
+				  if (rct_signatures.type != rct::RCTTypeNull)
+				  {
+					  ar.tag("rctsig_prunable");
+					  ar.begin_object();
+					  r = rct_signatures.p.serialize_rctsig_prunable(ar, rct_signatures.type, vin.size(), vout.size(),
+						  vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1 : 0);
+					  if (!r || !ar.stream().good()) return false;
+					  ar.end_object();
+				  }
+			  }
+		  }
+	  END_SERIALIZE()
+
+  private:
+	  static size_t get_signature_size(const txin_v& tx_in);
   };
 
   class transaction: public transaction_prefix
@@ -365,7 +438,7 @@ namespace cryptonote
     uint32_t nonce;
     size_t number_of_transactions;
     std::vector<crypto::hash> miner_tx_branch;
-    transaction miner_tx;
+    parent_block_transaction miner_tx;
     std::vector<crypto::hash> blockchain_branch;
   };
 
@@ -392,7 +465,7 @@ namespace cryptonote
       if (hashing_serialization)
       {
         crypto::hash miner_tx_hash;
-        if (!get_transaction_hash(b.miner_tx, miner_tx_hash))
+        if (!get_parent_block_transaction_hash(b.miner_tx, miner_tx_hash))		//if (!get_transaction_hash(b.miner_tx, miner_tx_hash))
           return false;
 
         crypto::hash merkle_root;
@@ -456,7 +529,7 @@ namespace cryptonote
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(major_version)
-      if(major_version > BLOCK_MAJOR_VERSION_2) return false;
+      if(major_version > BLOCK_MAJOR_VERSION_4) return false;
       VARINT_FIELD(minor_version)
       if (BLOCK_MAJOR_VERSION_1 == major_version)
       {
@@ -479,7 +552,7 @@ namespace cryptonote
 
     BEGIN_SERIALIZE_OBJECT()
       FIELDS(*static_cast<block_header *>(this))
-      if (BLOCK_MAJOR_VERSION_2 <= major_version)
+      if (BLOCK_MAJOR_VERSION_4 <= major_version)
       {
         auto sbb = make_serializable_bytecoin_block(*this, false, false);
         FIELD_N("parent_block", sbb);
@@ -571,7 +644,7 @@ namespace cryptonote
     BEGIN_SERIALIZE()
       //block header
       VARINT_FIELD(b.major_version)
-      if(b.major_version > BLOCK_MAJOR_VERSION_2) return false;
+      if(b.major_version > BLOCK_MAJOR_VERSION_4) return false;
       VARINT_FIELD(b.minor_version)
       VARINT_FIELD(b.timestamp)
       FIELD(b.prev_id)
