@@ -36,6 +36,7 @@ namespace cryptonote
 
   // Implemented in cryptonote_format_utils.cpp
   bool get_transaction_hash(const transaction& t, crypto::hash& res);
+  bool get_parent_block_transaction_hash(const parent_block_transaction& t, crypto::hash& res);
   bool get_mm_tag_from_extra(const std::vector<uint8_t>& tx, tx_extra_merge_mining_tag& mm_tag);
 
   const static crypto::hash null_hash = AUTO_VAL_INIT(null_hash);
@@ -257,8 +258,6 @@ namespace cryptonote
 	  static size_t get_signature_size(const txin_v& tx_in);
   };
 
-  bool get_parent_block_transaction_hash(const parent_block_transaction& t, crypto::hash& res);
-
   class transaction: public transaction_prefix
   {
   public:
@@ -270,7 +269,6 @@ namespace cryptonote
 
     BEGIN_SERIALIZE_OBJECT()
       FIELDS(*static_cast<transaction_prefix *>(this))
-
       ar.tag("signatures");
       ar.begin_array();
       PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
