@@ -49,39 +49,32 @@ static bool fillExtra(cryptonote::block& block1, const cryptonote::block& block2
 }
 
 static bool mergeBlocks(const cryptonote::block& block1, cryptonote::block& block2, const std::vector<crypto::hash>& branch2) {
-    block2.timestamp = block1.timestamp;
-    block2.parent_block.major_version = block1.major_version;
-    block2.parent_block.minor_version = block1.minor_version;
-    block2.parent_block.prev_id = block1.prev_id;
-    block2.parent_block.nonce = block1.nonce;
-    block2.miner_tx = block1.miner_tx;
-	/*block2.parent_block.miner_tx.extra = block1.parent_block.miner_tx.extra;
-	block2.parent_block.miner_tx.rct_signatures = block1.parent_block.miner_tx.rct_signatures;
-	block2.parent_block.miner_tx.signatures = block1.parent_block.miner_tx.signatures;
-	block2.parent_block.miner_tx.unlock_time = block1.parent_block.miner_tx.unlock_time;
-	block2.parent_block.miner_tx.version = block1.parent_block.miner_tx.version;
-	block2.parent_block.miner_tx.vin = block1.parent_block.miner_tx.vin;
-	block2.parent_block.miner_tx.vout = block1.parent_block.miner_tx.vout;
-    block2.parent_block.number_of_transactions = block1.tx_hashes.size() + 1;
-    block2.parent_block.miner_tx_branch.resize(crypto::tree_depth(block1.tx_hashes.size() + 1));*/
-    std::vector<crypto::hash> transactionHashes;
-	//transactionHashes.push_back(cryptonote::get_transaction_hash(block1.miner_tx));
-   // std::copy(block1.tx_hashes.begin(), block1.tx_hashes.end(), std::back_inserter(transactionHashes));
-   // tree_branch(transactionHashes.data(), transactionHashes.size(), block2.parent_block.miner_tx_branch.data());
-   // block2.parent_block.blockchain_branch = branch2;
+	block2.timestamp = block1.timestamp;
+	block2.parent_block.major_version = block1.major_version;
+	block2.parent_block.minor_version = block1.minor_version;
+	block2.parent_block.prev_id = block1.prev_id;
+	block2.parent_block.nonce = block1.nonce;
+	//block2.parent_block.miner_tx = block1.miner_tx;  //I don't quite understand the system so I don't know what to change here
+	block2.parent_block.number_of_transactions = block1.tx_hashes.size() + 1;
+	block2.parent_block.miner_tx_branch.resize(crypto::tree_depth(block1.tx_hashes.size() + 1));
+	std::vector<crypto::hash> transactionHashes;
+	transactionHashes.push_back(cryptonote::get_transaction_hash(block1.miner_tx));
+	std::copy(block1.tx_hashes.begin(), block1.tx_hashes.end(), std::back_inserter(transactionHashes));
+	tree_branch(transactionHashes.data(), transactionHashes.size(), block2.parent_block.miner_tx_branch.data());
+	block2.parent_block.blockchain_branch = branch2;
     return true;
 }
 
 static bool construct_parent_block(const cryptonote::block& b, cryptonote::block& parent_block) {
-    parent_block.major_version = 4;
-    parent_block.minor_version = 0;
-    parent_block.timestamp = b.timestamp;
-    parent_block.prev_id = b.prev_id;
-    parent_block.nonce = b.parent_block.nonce;
-    parent_block.miner_tx.version = CURRENT_TRANSACTION_VERSION;
-    parent_block.miner_tx.unlock_time = 0;
+	parent_block.major_version = 1;
+	parent_block.minor_version = 0;
+	parent_block.timestamp = b.timestamp;
+	parent_block.prev_id = b.prev_id;
+	parent_block.nonce = b.parent_block.nonce;
+	parent_block.miner_tx.version = CURRENT_TRANSACTION_VERSION;
+	parent_block.miner_tx.unlock_time = 0;
 
-    return fillExtra(parent_block, b);
+	return fillExtra(parent_block, b);
 }
 
 Handle<Value> convert_blob(const Arguments& args) {
