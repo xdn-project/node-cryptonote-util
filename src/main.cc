@@ -54,19 +54,26 @@ static bool mergeBlocks(const cryptonote::block& block1, cryptonote::block& bloc
     block2.parent_block.minor_version = block1.minor_version;
     block2.parent_block.prev_id = block1.prev_id;
     block2.parent_block.nonce = block1.nonce;
-    block2.parent_block.miner_tx = block1.miner_tx;
+    block2.miner_tx = block1.miner_tx;
+	/*block2.parent_block.miner_tx.extra = block1.parent_block.miner_tx.extra;
+	block2.parent_block.miner_tx.rct_signatures = block1.parent_block.miner_tx.rct_signatures;
+	block2.parent_block.miner_tx.signatures = block1.parent_block.miner_tx.signatures;
+	block2.parent_block.miner_tx.unlock_time = block1.parent_block.miner_tx.unlock_time;
+	block2.parent_block.miner_tx.version = block1.parent_block.miner_tx.version;
+	block2.parent_block.miner_tx.vin = block1.parent_block.miner_tx.vin;
+	block2.parent_block.miner_tx.vout = block1.parent_block.miner_tx.vout;
     block2.parent_block.number_of_transactions = block1.tx_hashes.size() + 1;
-    block2.parent_block.miner_tx_branch.resize(crypto::tree_depth(block1.tx_hashes.size() + 1));
+    block2.parent_block.miner_tx_branch.resize(crypto::tree_depth(block1.tx_hashes.size() + 1));*/
     std::vector<crypto::hash> transactionHashes;
-    transactionHashes.push_back(cryptonote::get_transaction_hash(block1.miner_tx));
-    std::copy(block1.tx_hashes.begin(), block1.tx_hashes.end(), std::back_inserter(transactionHashes));
-    tree_branch(transactionHashes.data(), transactionHashes.size(), block2.parent_block.miner_tx_branch.data());
-    block2.parent_block.blockchain_branch = branch2;
+	//transactionHashes.push_back(cryptonote::get_transaction_hash(block1.miner_tx));
+   // std::copy(block1.tx_hashes.begin(), block1.tx_hashes.end(), std::back_inserter(transactionHashes));
+   // tree_branch(transactionHashes.data(), transactionHashes.size(), block2.parent_block.miner_tx_branch.data());
+   // block2.parent_block.blockchain_branch = branch2;
     return true;
 }
 
 static bool construct_parent_block(const cryptonote::block& b, cryptonote::block& parent_block) {
-    parent_block.major_version = 1;
+    parent_block.major_version = 4;
     parent_block.minor_version = 0;
     parent_block.timestamp = b.timestamp;
     parent_block.prev_id = b.prev_id;
@@ -84,7 +91,7 @@ Handle<Value> convert_blob(const Arguments& args) {
         return except("You must provide one argument.");
 
     Local<Object> target = args[0]->ToObject();
-    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_2;
+    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_4;
     if (args.Length() >= 2) {
       mergedMiningBlockVersion = static_cast<uint64_t>(args[1]->ToNumber()->NumberValue());
     }
@@ -123,7 +130,7 @@ Handle<Value> get_block_id(const Arguments& args) {
         return except("You must provide one argument.");
 
     Local<Object> target = args[0]->ToObject();
-    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_2;
+    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_4;
     if (args.Length() >= 2) {
       mergedMiningBlockVersion = static_cast<uint64_t>(args[1]->ToNumber()->NumberValue());
     }
@@ -155,7 +162,7 @@ Handle<Value> construct_block_blob(const Arguments& args) {
     Local<Object> block_template_buf = args[0]->ToObject();
     Local<Object> nonce_buf = args[1]->ToObject();
 
-    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_2;
+    uint64_t mergedMiningBlockVersion = BLOCK_MAJOR_VERSION_4;
     if (args.Length() >= 3) {
       mergedMiningBlockVersion = static_cast<uint64_t>(args[2]->ToNumber()->NumberValue());
     }
