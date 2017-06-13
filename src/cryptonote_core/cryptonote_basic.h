@@ -269,6 +269,7 @@ namespace cryptonote
 
     BEGIN_SERIALIZE_OBJECT()
       FIELDS(*static_cast<transaction_prefix *>(this))
+
       ar.tag("signatures");
       ar.begin_array();
       PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
@@ -439,7 +440,6 @@ namespace cryptonote
     std::vector<crypto::hash> miner_tx_branch;
     parent_block_transaction miner_tx;
     std::vector<crypto::hash> blockchain_branch;
-
   };
 
   struct serializable_bytecoin_block
