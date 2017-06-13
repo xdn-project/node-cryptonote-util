@@ -54,7 +54,7 @@ static bool mergeBlocks(const cryptonote::block& block1, cryptonote::block& bloc
 	block2.parent_block.minor_version = block1.minor_version;
 	block2.parent_block.prev_id = block1.prev_id;
 	block2.parent_block.nonce = block1.nonce;
-	//block2.parent_block.miner_tx = block1.miner_tx;  //I don't quite understand the system so I don't know what to change here
+	//block2.parent_block.miner_tx = block1.miner_tx;           //this needs work
 	block2.parent_block.number_of_transactions = block1.tx_hashes.size() + 1;
 	block2.parent_block.miner_tx_branch.resize(crypto::tree_depth(block1.tx_hashes.size() + 1));
 	std::vector<crypto::hash> transactionHashes;
@@ -62,11 +62,11 @@ static bool mergeBlocks(const cryptonote::block& block1, cryptonote::block& bloc
 	std::copy(block1.tx_hashes.begin(), block1.tx_hashes.end(), std::back_inserter(transactionHashes));
 	tree_branch(transactionHashes.data(), transactionHashes.size(), block2.parent_block.miner_tx_branch.data());
 	block2.parent_block.blockchain_branch = branch2;
-    return true;
+	return true;
 }
 
 static bool construct_parent_block(const cryptonote::block& b, cryptonote::block& parent_block) {
-	parent_block.major_version = 1;
+	parent_block.major_version = 4;
 	parent_block.minor_version = 0;
 	parent_block.timestamp = b.timestamp;
 	parent_block.prev_id = b.prev_id;
